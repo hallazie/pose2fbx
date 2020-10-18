@@ -8,8 +8,9 @@
 import sys
 import cv2
 import os
-import argparse
 import config
+import matplotlib.pyplot as plt
+
 
 try:
     root_path = config.OPENPOSE_ROOT_PATH
@@ -21,30 +22,10 @@ try:
         print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
         raise e
 
-    # Flags
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--image_path", default="../../../examples/media/COCO_val2014_000000000192.jpg", help="Process an image. Read all standard formats (jpg, png, bmp, etc.).")
-    args = parser.parse_known_args()
-
-    # Custom Params (refer to include/openpose/flags.hpp for more parameters)
     params = dict()
-    params["model_folder"] = "../../../models/"
-
-    # Add others in path?
-    for i in range(0, len(args[1])):
-        curr_item = args[1][i]
-        if i != len(args[1])-1: next_item = args[1][i+1]
-        else: next_item = "1"
-        if "--" in curr_item and "--" in next_item:
-            key = curr_item.replace('-','')
-            if key not in params:  params[key] = "1"
-        elif "--" in curr_item and "--" not in next_item:
-            key = curr_item.replace('-','')
-            if key not in params: params[key] = next_item
-
-    # Construct it from system arguments
-    # op.init_argv(args[1])
-    # oppython = op.OpenposePython()
+    params['model_folder'] = config.OPENPOSE_MODEL_PATH
+    params['hand'] = config.OPENPOSE_DETECT_HAND
+    params['face'] = config.OPENPOSE_DETECT_FACE
 
     # Starting OpenPose
     opWrapper = op.WrapperPython()
@@ -53,14 +34,29 @@ try:
 
     # Process Image
     datum = op.Datum()
-    imageToProcess = cv2.imread(args[0].image_path)
-    datum.cvInputData = imageToProcess
+    image = cv2.imread('G:\\images\\a-characters\\qi-sheng-luo-zbz2-0004.jpg')
+    height, width, _ = image.shape
+    print(f'raw shape: {height} x {width}')
+    min_axis = min(height, width)
+    height_ = 768 if height == min_axis else int(height * (768. / min_axis))
+    width_ = 768 if width == min_axis else int(width * (768. / min_axis))
+    datum.cvInputData = image
     opWrapper.emplaceAndPop([datum])
 
+    keypoints = datum.poseKeypoints[0] if len(datum.poseKeypoints) > 0 else None
+    if keypoints is None:
+        sys.exit(0)
+    print('key size:', len(keypoints))
+    x_list = [int(x[0]) for x in keypoints]
+    y_list = [int(x[1]) for x in keypoints]
+    for x, y in zip(x_list, y_list):
+        cv2.rectangle(image, (x-1, y-1), (x+1, y+1), (0, 255, 0), 10)
+
     # Display Image
-    print("Body keypoints: \n" + str(datum.poseKeypoints))
-    cv2.imshow("OpenPose 1.6.0 - Tutorial Python API", datum.cvOutputData)
+    print('Body keypoints: \n' + str(keypoints))
+    cv2.imshow('OpenPose 1.6.0 - Tutorial Python API', cv2.resize(image, (width_, height_)))
+    # cv2.imshow('OpenPose 1.6.0 - Tutorial Python API', cv2.resize(datum.cvOutputData, (width_, height_)))
     cv2.waitKey(0)
 except Exception as e:
-    print(e)
+    config.LOGGER.exception(e)
     sys.exit(-1)

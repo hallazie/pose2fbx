@@ -1,1 +1,6 @@
 .idea/
+venv/
+*.fbx
+*.jpg
+*.jpeg
+*.png
